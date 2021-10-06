@@ -11,11 +11,10 @@ import "C"
 import (
 	"fmt"
 	"sync"
-	"time"
 	"unsafe"
 
+	"github.com/pion/rtp"
 	"github.com/pion/webrtc/v3"
-	"github.com/pion/webrtc/v3/pkg/media"
 )
 
 func init() {
@@ -25,7 +24,7 @@ func init() {
 // Pipeline is a wrapper for a GStreamer Pipeline
 type Pipeline struct {
 	Pipeline  *C.GstElement
-	tracks    []*webrtc.TrackLocalStaticSample
+	tracks    []*webrtc.TrackLocalStaticRTP
 	id        int
 	codecName string
 	clockRate float32
@@ -41,13 +40,13 @@ const (
 )
 
 // CreatePipeline creates a GStreamer Pipeline
-func CreatePipeline(codecName string, tracks []*webrtc.TrackLocalStaticSample, pipelineSrc string) *Pipeline {
+func CreatePipeline(codecName string, tracks []*webrtc.TrackLocalStaticRTP, pipelineSrc string) *Pipeline {
 	pipelineStr := "appsink name=appsink"
 	var clockRate float32
 
 	switch codecName {
 	case "vp8":
-		pipelineStr = pipelineSrc + " ! vp8enc error-resilient=partitions keyframe-max-dist=10 auto-alt-ref=true cpu-used=5 deadline=1 ! " + pipelineStr
+		pipelineStr = pipelineSrc + " ! vp8enc error-resilient=partitions keyframe-max-dist=10 auto-alt-ref=true cpu-used=5 deadline=1 ! rtpvp8pay ! " + pipelineStr
 		clockRate = videoClockRate
 
 	case "vp9":
@@ -59,7 +58,7 @@ func CreatePipeline(codecName string, tracks []*webrtc.TrackLocalStaticSample, p
 		clockRate = videoClockRate
 
 	case "opus":
-		pipelineStr = pipelineSrc + " ! opusenc ! " + pipelineStr
+		pipelineStr = pipelineSrc + " ! opusenc ! rtpopuspay ! " + pipelineStr
 		clockRate = audioClockRate
 
 	case "g722":
@@ -113,8 +112,12 @@ func goHandlePipelineBuffer(buffer unsafe.Pointer, bufferLen C.int, duration C.i
 	pipelinesLock.Unlock()
 
 	if ok {
+		p := &rtp.Packet{}
+		if err := p.Unmarshal(C.GoBytes(buffer, bufferLen)); err != nil {
+			panic(err)
+		}
 		for _, t := range pipeline.tracks {
-			if err := t.WriteSample(media.Sample{Data: C.GoBytes(buffer, bufferLen), Duration: time.Duration(duration)}); err != nil {
+			if err := t.WriteRTP(p); err != nil {
 				panic(err)
 			}
 		}

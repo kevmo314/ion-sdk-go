@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+
 	gst "github.com/pion/ion-sdk-go/pkg/gstreamer-src"
 
 	ilog "github.com/pion/ion-log"
@@ -58,7 +59,7 @@ func main() {
 		return
 	}
 
-	videoTrack, err := webrtc.NewTrackLocalStaticSample(webrtc.RTPCodecCapability{MimeType: "video/vp8"}, "video", "pion2")
+	videoTrack, err := webrtc.NewTrackLocalStaticRTP(webrtc.RTPCodecCapability{MimeType: "video/vp8"}, "video", "pion2")
 	if err != nil {
 		panic(err)
 	}
@@ -68,7 +69,7 @@ func main() {
 		panic(err)
 	}
 
-	audioTrack, err := webrtc.NewTrackLocalStaticSample(webrtc.RTPCodecCapability{MimeType: "audio/opus"}, "audio", "pion1")
+	audioTrack, err := webrtc.NewTrackLocalStaticRTP(webrtc.RTPCodecCapability{MimeType: "audio/opus"}, "audio", "pion1")
 	if err != nil {
 		panic(err)
 	}
@@ -86,8 +87,8 @@ func main() {
 	}
 
 	// Start pushing buffers on these tracks
-	gst.CreatePipeline("opus", []*webrtc.TrackLocalStaticSample{audioTrack}, *audioSrc).Start()
-	gst.CreatePipeline("vp8", []*webrtc.TrackLocalStaticSample{videoTrack}, *videoSrc).Start()
+	gst.CreatePipeline("opus", []*webrtc.TrackLocalStaticRTP{audioTrack}, *audioSrc).Start()
+	gst.CreatePipeline("vp8", []*webrtc.TrackLocalStaticRTP{videoTrack}, *videoSrc).Start()
 
 	select {}
 }
